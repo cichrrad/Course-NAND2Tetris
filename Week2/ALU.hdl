@@ -42,24 +42,52 @@ CHIP ALU {
 
     PARTS:
     
+    //HUGE REMARK -> Mux is the closest thing to if{}else{} you'll get
+    /*
+    *   lets say you want to check [zx]   
+    *
+    *   if(zx==1){
+    *       do a
+    *   }
+    *   else{
+    *       do b
+    *   }
+    *
+    *   can be done as Mux16(a,b,zx,output) 
+    *
+    */ 
+
+    // handle [zx] and [nx]
     Mux16(a=x , b=false , sel=zx, out=xZX );
     Not16(in=xZX,out=NEQxZX);
     Mux16(a=xZX,b=NEQxZX,sel=nx,out=xZXZN);
 
+    // handle [zy] and [ny]
     Mux16(a=y , b=false , sel=zy, out=yZY );
     Not16(in=yZY,out=NEQyZY);
     Mux16(a=yZY,b=NEQyZY,sel=ny,out=yZYZN);
 
+    // handle [f]
     Add16(a=xZXZN, b=yZYZN, out=ADDxy);
     And16(a=xZXZN, b=yZYZN, out=PLUSxy);
     Mux16(a=PLUSxy , b=ADDxy , sel=f , out=xy );
 
+    // handle [no]
+    // retarded splitting up of [out]
+    // --> for later finding [zr]
+    // + finding [ng] right now by simply looking at
+    // sign bit (far-left one, hence out[15])
     Not16(in=xy,out=NEQxy);
     Mux16(a=xy,b=NEQxy,sel=no,out[0..7]=temp1,
         out[8..15]=temp2, 
         out[15]=ng,
         out=out);
     
+    // [out] is 0 iff there are only 0's (duh)
+    // reduce 0-7 with OR, then 8-15 with OR 
+    // (hence the retarded splitting before)
+    // --> then just OR those 2 reductions
+    // --> store the negation into zr (XOR saves us 1 NOT gate)
     Or8Way(in=temp1 , out=zr1 );
     Or8Way(in=temp2 , out=zr2 );
     Or(a=zr1 , b=zr2 , out=tzr );
